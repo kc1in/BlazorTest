@@ -116,7 +116,10 @@
                     }
                     // If the user said okay
                     if (status === "granted") {
-                        var n = new Notification(defaultNotify);
+                        //var n = new Notification(defaultNotify);
+                        navigator.serviceWorker.ready.then(function (registration) {
+                            registration.showNotification(defaultNotify);
+                        });
                     }
                     // Otherwise, we can fallback to a regular modal alert
                     else {
@@ -131,9 +134,9 @@
             }
         }
         intervalId = 0;
-        num=0
+        num = 0
         window.showNotifyCon = () => {
-            intervalId=setInterval(() => { window.showNotify(num++) }, 3000)
+            intervalId = setInterval(() => { window.showNotify(num++) }, 3000)
         }
 
         window.stopNotifyCon = () => {
