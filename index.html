@@ -30,7 +30,10 @@
                     console.log('Service Worker Registered');
                 });
         }
-
+        window.getCams = () => {
+            window.getStream().then(getDevices).then(gotDevices);
+            return ""
+        }
         window.initCamera = function () {
 
             var player = document.getElementById('player');
@@ -40,13 +43,24 @@
                 player.srcObject = stream;
             };
 
+            var audioSelect = document.querySelector('select#audioSource');
+            var videoSelect = document.querySelector('select#videoSource');
+
+            const audioSource = audioSelect.value;
+            const videoSource = videoSelect.value;
+
+            const constraints = {
+                //audio: { deviceId: audioSource ? { exact: audioSource } : undefined },
+                video: { deviceId: videoSource ? { exact: videoSource } : undefined }
+            };
 
 
-            navigator.mediaDevices.getUserMedia({ video: true })
+            navigator.mediaDevices.getUserMedia(constraints)
                 .then(handleSuccess);
 
             return "";
         }
+
 
         window.photo = function () {
             var player = document.getElementById('player');
@@ -90,61 +104,69 @@
             return "";
         }
 
-        window.getNotificationPermission = () => {
-            Notification.requestPermission(function (status) {
-                // This allows to use Notification.permission with Chrome/Safari
-                if (Notification.permission !== status) {
-                    Notification.permission = status;
-                }
-            });
+
+
+        var videoElement = document.querySelector('video');
+        var audioSelect = document.querySelector('select#audioSource');
+        var videoSelect = document.querySelector('select#videoSource');
+
+
+        window.getDevices = () => {
+            // AFAICT in Safari this only gets default devices until gUM is called :/
+            return navigator.mediaDevices.enumerateDevices();
         }
 
-        window.showNotify = (num) => {
-            var defaultNotify = document.getElementById("defaultNotify").value;
-            if (num)
-                defaultNotify += num;
-            if (Notification && Notification.permission === "granted") {
-                //var n = new Notification(defaultNotify);
-                navigator.serviceWorker.ready.then(function (registration) {
-                            registration.showNotification(defaultNotify);
-                        });
+        window.gotDevices = (deviceInfos) => {
+            var audioSelect = document.querySelector('select#audioSource');
+            var videoSelect = document.querySelector('select#videoSource');
+            window.deviceInfos = deviceInfos; // make available to console
+            console.log('Available input and output devices:', deviceInfos);
+            for (const deviceInfo of deviceInfos) {
+                const option = document.createElement('option');
+                option.value = deviceInfo.deviceId;
+                if (deviceInfo.kind === 'audioinput') {
+                    option.text = deviceInfo.label || `Microphone ${audioSelect.length + 1}`;
+                    audioSelect.appendChild(option);
+                } else if (deviceInfo.kind === 'videoinput') {
+                    option.text = deviceInfo.label || `Camera ${videoSelect.length + 1}`;
+                    videoSelect.appendChild(option);
+                }
             }
-            // If the user hasn't told if he wants to be notified or not
-            // Note: because of Chrome, we are not sure the permission property
-            // is set, therefore it's unsafe to check for the "default" value.
-            else if (Notification && Notification.permission !== "denied") {
-                Notification.requestPermission(function (status) {
-                    if (Notification.permission !== status) {
-                        Notification.permission = status;
-                    }
-                    // If the user said okay
-                    if (status === "granted") {
-                        //var n = new Notification(defaultNotify);
-                        navigator.serviceWorker.ready.then(function (registration) {
-                            registration.showNotification(defaultNotify);
-                        });
-                    }
-                    // Otherwise, we can fallback to a regular modal alert
-                    else {
-                        alert('alert'+defaultNotify);
-                    }
+        }
+
+        window.getStream = () => {
+            var videoElement = document.querySelector('video');
+            var audioSelect = document.querySelector('select#audioSource');
+            var videoSelect = document.querySelector('select#videoSource');
+            if (window.stream) {
+                window.stream.getTracks().forEach(track => {
+                    track.stop();
                 });
             }
-            // If the user refuses to get notified
-            else {
-                // We can fallback to a regular modal alert
-                alert('alert'+defaultNotify);
-            }
-        }
-        intervalId = 0;
-        num = 0
-        window.showNotifyCon = () => {
-            intervalId = setInterval(() => { window.showNotify(num++) }, 3000)
+            const audioSource = audioSelect.value;
+            const videoSource = videoSelect.value;
+            const constraints = {
+                audio: { deviceId: audioSource ? { exact: audioSource } : undefined },
+                video: { deviceId: videoSource ? { exact: videoSource } : undefined }
+            };
+            return navigator.mediaDevices.getUserMedia(constraints).
+                then(gotStream).catch(handleError);
         }
 
-        window.stopNotifyCon = () => {
-            clearInterval(intervalId)
+        window.gotStream = (stream) => {
+            window.stream = stream; // make stream available to console
+            audioSelect.selectedIndex = [...audioSelect.options].
+                findIndex(option => option.text === stream.getAudioTracks()[0].label);
+            videoSelect.selectedIndex = [...videoSelect.options].
+                findIndex(option => option.text === stream.getVideoTracks()[0].label);
+            videoElement.srcObject = stream;
         }
+
+        window.handleError = (error) => {
+            console.error('Error: ', error);
+        }
+
+
 
     </script>
 </body>
